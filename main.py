@@ -17,14 +17,15 @@ from torch.autograd import Variable
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.tensorboard import SummaryWriter
 
-from cgcnn.data import CIFData
-from cgcnn.data import collate_pool, get_train_val_test_loader
-from cgcnn.model import CrystalGraphConvNet
+from data import CIFData
+from data import collate_pool, get_train_val_test_loader
+from model import CrystalGraphConvNet
 
 parser = argparse.ArgumentParser(description='Crystal Graph Convolutional Neural Networks')
 parser.add_argument('data_options', metavar='OPTIONS', nargs='+',
                     help='dataset options, started with the path to root dir, '
                          'then other options')
+parser.add_argument('--seed', type=int, default=123, help='random seed (default: 123)')
 parser.add_argument('--task', choices=['regression', 'classification'],
                     default='regression', help='complete a regression or '
                                                    'classification task (default: regression)')
@@ -41,9 +42,9 @@ parser.add_argument('-b', '--batch-size', default=256, type=int,
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate (default: '
                                        '0.01)')
-parser.add_argument('--lr-milestones', default=[100], nargs='+', type=int,
+parser.add_argument('--lr-milestones', default=[50,80], nargs='+', type=int,
                     metavar='N', help='milestones for scheduler (default: '
-                                      '[100])')
+                                      '[50,80])')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=0, type=float,
@@ -127,8 +128,8 @@ def main():
         normalizer = Normalizer(sample_target)
 
     # build model
-    structures, _, _, _ = dataset[0]
-    orig_atom_fea_len = structures[0].shape[-1]
+    structures, all_fea, _, _ = dataset[0]
+    orig_atom_fea_len = all_fea.shape[-1]
     nbr_fea_len = structures[1].shape[-1]
     model = CrystalGraphConvNet(orig_atom_fea_len, nbr_fea_len,
                                 atom_fea_len=args.atom_fea_len,
@@ -179,10 +180,15 @@ def main():
                             gamma=0.1)
 
     global_start_time = time.time()
+    total_train_batch_time, total_train_data_time = 0, 0
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, normalizer)
-        tensorboard_writer.add_scalar("Time/train", time.time()-global_start_time, epoch)
+        train_batch_time, train_data_time = train(train_loader, model, criterion, optimizer, epoch, normalizer)
+        total_train_batch_time += train_batch_time
+        total_train_data_time += train_data_time
+        tensorboard_writer.add_scalar("Time/train_total", total_train_batch_time, epoch)
+        tensorboard_writer.add_scalar("Time/train_data", total_train_data_time, epoch)
+        tensorboard_writer.add_scalar("Time/train_train", total_train_batch_time-total_train_data_time, epoch)
 
         # evaluate on validation set
         mae_error = validate(val_loader, model, criterion, epoch, normalizer)
@@ -241,13 +247,13 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer):
         data_time.update(time.time() - end)
 
         if args.cuda:
-            input_var = (Variable(input[0].cuda(non_blocking=True)),
+            input_var = (input[0].cuda(non_blocking=True),
                          Variable(input[1].cuda(non_blocking=True)),
                          input[2].cuda(non_blocking=True),
                          Variable(input[3].cuda(non_blocking=True)),
                          [crys_idx.cuda(non_blocking=True) for crys_idx in input[4]])
         else:
-            input_var = (Variable(input[0]),
+            input_var = (input[0],
                          Variable(input[1]),
                          input[2],
                          Variable(input[3]),
@@ -315,8 +321,10 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer):
                     prec=precisions, recall=recalls, f1=fscores,
                     auc=auc_scores)
                 )
-    tensorboard_writer.add_scalar("Loss/train", losses.val, epoch)
-    tensorboard_writer.add_scalar("MAE/train", mae_errors.val, epoch)
+    tensorboard_writer.add_scalar("Loss/train", losses.avg, epoch)
+    tensorboard_writer.add_scalar("MAE/train", mae_errors.avg, epoch)
+
+    return batch_time.sum, data_time.sum
 
 
 def validate(val_loader, model, criterion, epoch, normalizer, test=False):
@@ -342,14 +350,14 @@ def validate(val_loader, model, criterion, epoch, normalizer, test=False):
     for i, (input, target, batch_cif_ids) in enumerate(val_loader):
         if args.cuda:
             with torch.no_grad():
-                input_var = (Variable(input[0].cuda(non_blocking=True)),
+                input_var = (input[0].cuda(non_blocking=True),
                              Variable(input[1].cuda(non_blocking=True)),
                              input[2].cuda(non_blocking=True),
                              Variable(input[3].cuda(non_blocking=True)),
                              [crys_idx.cuda(non_blocking=True) for crys_idx in input[4]])
         else:
             with torch.no_grad():
-                input_var = (Variable(input[0]),
+                input_var = (input[0],
                              Variable(input[1]),
                              input[2],
                              Variable(input[3]),
@@ -422,8 +430,8 @@ def validate(val_loader, model, criterion, epoch, normalizer, test=False):
                     accu=accuracies, prec=precisions, recall=recalls,
                     f1=fscores, auc=auc_scores))
     if not test:
-        tensorboard_writer.add_scalar("Loss/validate", losses.val, epoch)
-        tensorboard_writer.add_scalar("MAE/validate", mae_errors.val, epoch)
+        tensorboard_writer.add_scalar("Loss/validate", losses.avg, epoch)
+        tensorboard_writer.add_scalar("MAE/validate", mae_errors.avg, epoch)
 
     if test:
         star_label = '**'
@@ -554,11 +562,12 @@ def setup_seed(seed):
      torch.backends.cudnn.deterministic = True
 
 if __name__ == '__main__':
-    setup_seed(123)
+    setup_seed(args.seed)
     nowTime = datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')
     pwd = os.path.join(os.getcwd(), 'runs', nowTime)
     creatwd(pwd)
     tensorboard_writer = SummaryWriter(pwd)
     sys.stdout = Logger(os.path.join(pwd, 'default.log'), sys.stdout)
     sys.stderr = Logger(os.path.join(pwd, 'default.log'), sys.stderr)
+    print(" ".join(sys.argv))
     main()
