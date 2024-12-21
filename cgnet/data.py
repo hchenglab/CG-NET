@@ -24,7 +24,7 @@ class Featureizer:
         cluster_radius: float = 10.0,
         max_nodes: int = 12,
         step: float = 0.2,
-        json_path: str = ".",
+        json_path: str = "raw_dataset",
     ):
         """
         Parameters

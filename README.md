@@ -19,7 +19,7 @@ conda env create -f env.yml
 After the environment is created, install CG-NET via pip:
 ```terminal
 conda activate cgnet
-pip install .
+pip install -e .
 ```
 
 #### CUDA (GPU) Installation
@@ -46,10 +46,9 @@ You can create a customized dataset by organizing your data into a directory cal
     - The second column should contain the value of the target property for each crystal
     - Starting from the third column, the file should list the atom indexes of the cluster centers for each crystal. If you are studying systems with multiple cluster centers, you can define more than one cluster center by adding additional columns for each cluster center’s atom index
 
-2. `atom_init.json`: a [JSON](https://en.wikipedia.org/wiki/JSON) file that stores the initialization vector for each element. 
-The `atom_init.json`, inherited from [CGCNN](https://github.com/txie-93/cgcnn/tree/master), should work for most applications.
+2. `atom_init.json`: a [JSON](https://en.wikipedia.org/wiki/JSON) file that stores the initialization vector for each element. The atom_init.json, inherited from [CGCNN]((https://github.com/txie-93/cgcnn/tree/master)), should work for most applications.
 
-3. `ID.cif`: a [CIF](https://en.wikipedia.org/wiki/Crystallographic_Information_File) file that recodes the crystal structure, where `ID` is the unique `ID` for the crystal.
+2. `ID.cif`: a [CIF](https://en.wikipedia.org/wiki/Crystallographic_Information_File) file that recodes the crystal structure, where `ID` is the unique `ID` for the crystal.
 
 The structure of the `raw_dataset` should be:
 
@@ -71,11 +70,12 @@ python train.py
 ```
 In `train.py`, you will also find a few adjustable parameters regarding the CG-NET architecture and training.
 
-After training, you will get three files in `logs/cgnet/version_x` directory.
+After training, you will get four types of files in `logs/cgnet/version_x`:
 
 - `checkpoints`: stores the checkpoints of the CG-NET model with the best validation loss.
 - `hparams.yaml`: stores the hyperparameters used for training.
 - `test_results.csv`: stores the `ID`, target value, and predicted value for each crystal in test set.
+- `events.out.tfevents.xxxxxx`: stores the training and validation loss, as well as the learning rate, which can be visualized using [TensorBoard](https://www.tensorflow.org/tensorboard).
 
 #### Predict material properties with a pre-trained CGCNN model
 After training, you can use the pre-trained model to predict the properties of new materials. To do this, you will need to run `predict.py`.

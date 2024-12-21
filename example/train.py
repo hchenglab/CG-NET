@@ -17,8 +17,8 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from data import Featureizer, CGCNNDataset
-from model import CGCNN
+from cgnet.data import Featureizer, CGCNNDataset
+from cgnet.model import CGCNN
 
 warnings.filterwarnings("ignore")
 
@@ -42,7 +42,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--epochs",
-    default=30,
+    default=500,
     type=int,
     metavar="N",
     help="number of total epochs to run (default: 30)",
@@ -145,7 +145,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 start_time = time.time()
 
-cif_path = "cif_dataset"
+cif_path = "raw_dataset"
 
 
 def gendata(path: str):

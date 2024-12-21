@@ -1,0 +1,10 @@
+
+*.egg-info/
+*.pt
+*.lmdb*
+*.traj
+*.db
+__pycache__/
+results/
+logs/
+.DS_Store

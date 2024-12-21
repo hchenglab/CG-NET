@@ -212,7 +212,7 @@ class CGCNN(pl.LightningModule):
         return weighted_h
 
     def training_step(self, batch, batch_idx):
-        ids, inputs, labels = batch
+        ids, cidxs, inputs, labels = batch
         outputs = self.forward(inputs)
         if self.task == "regression":
             labels = labels.view_as(outputs)
@@ -237,7 +237,7 @@ class CGCNN(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        ids, inputs, labels = batch
+        ids, cidxs, inputs, labels = batch
         outputs = self.forward(inputs)
         if self.task == "regression":
             labels = labels.view_as(outputs)
@@ -257,7 +257,7 @@ class CGCNN(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        ids, inputs, labels = batch
+        ids, cidxs, inputs, labels = batch
         outputs = self.forward(inputs)
         if self.task == "regression":
             labels = labels.view_as(outputs)
@@ -284,7 +284,7 @@ class CGCNN(pl.LightningModule):
         self.test_outputs.extend(outputs)
 
     def predict_step(self, batch, batch_idx):
-        ids, inputs, labels = batch
+        ids, cidxs, inputs, labels = batch
         outputs = self.forward(inputs)
         self.predic_ids.extend(ids)
         self.predic_labels.extend(labels)
