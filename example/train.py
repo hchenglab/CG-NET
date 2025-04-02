@@ -154,7 +154,7 @@ def gendata(path: str):
     ids, cidxs, energies = [], [], []
     with open(os.path.join(path, "id_prop_index.csv"), "r") as f:
         reader = csv.reader(f)
-        next(reader)
+        # next(reader)
         for row in reader:
             ids.append(row[0])
             energies.append(float(row[1]))
