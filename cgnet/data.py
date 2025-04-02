@@ -14,6 +14,9 @@ except ModuleNotFoundError:
     raise ImportError("This function requires DGL to be installed.")
 
 from pymatgen.core.structure import Structure
+from pymatgen.io.ase import AseAtomsAdaptor
+from ase import Atoms
+from ase.neighborlist import NeighborList, natural_cutoffs
 
 
 class Featureizer:
@@ -21,8 +24,8 @@ class Featureizer:
         self,
         radius: float = 8.0,
         max_neighbors: int = 12,
-        cluster_radius: float = 10.0,
-        max_nodes: int = 12,
+        # cluster_radius: float = 10.0,
+        # max_nodes: int = 12,
         step: float = 0.2,
         json_path: str = "raw_dataset",
     ):
@@ -44,8 +47,8 @@ class Featureizer:
         """
         self.radius = radius
         self.max_neighbors = max_neighbors
-        self.cluster_radius = cluster_radius
-        self.max_nodes = max_nodes
+        # self.cluster_radius = cluster_radius
+        # self.max_nodes = max_nodes
         self.step = step
         self.json_path = json_path
 
@@ -60,7 +63,7 @@ class Featureizer:
         }
         self.valid_atom_number = set(self.atom_features.keys())
 
-    def _featurize(self, datapoint: Structure, cidxs: list[int]) -> dgl.DGLGraph:
+    def _featurize(self, datapoint: Atoms, cidxs: list[int]) -> dgl.DGLGraph:
         """
         Calculate crystal graph features from pymatgen structure.
 
@@ -83,7 +86,7 @@ class Featureizer:
         graph = GraphData(node_features, node_weights, edge_index, edge_features).to_dgl_graph()
         return graph
     
-    def _get_cluster_node_and_edge(self, struct: Structure, cidxs: list[int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _get_cluster_node_and_edge(self, atom_object: Atoms, cidxs: list[int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Get the node feature and edge feature from pymatgen structure.
 
@@ -111,20 +114,31 @@ class Featureizer:
             A numpy array of shape with `(num_edges, filter_length)`.
         """
 
+        # convert ase Atoms to pymatgen Structure
+        adaptor = AseAtomsAdaptor()
+        struct = adaptor.get_structure(atom_object)
+
         # get the index of all nodes
         crystal_nodes_idx = list(range(len(struct)))
 
-        all_cluster_nodes = []
+        nl = NeighborList(
+            natural_cutoffs(atom_object, 1.1), self_interaction=False, bothways=True, skin=0.25,
+        )
+        nl.update(atom_object)
+
         all_cluster_nodes_idx = []
         for cidx in cidxs:
-            # get cluster nodes
-            cluster_nodes = struct.get_neighbors(struct[cidx], self.cluster_radius, include_index=True)
-            cluster_nodes = sorted(cluster_nodes, key=lambda x: x[1])
-            cluster_nodes = cluster_nodes[: self.max_nodes-1]
-            # get the index of cluster nodes
             cluster_nodes_idx = [cidx]
-            cluster_nodes_idx.extend([node[2] for node in cluster_nodes])
-            all_cluster_nodes.extend(cluster_nodes)
+            i_indices, i_offsets = nl.get_neighbors(cidx)
+            cluster_nodes_idx.extend(i_indices)
+            for i, i_indice in enumerate(i_indices):
+                j_indices, j_offsets = nl.get_neighbors(i_indice)
+                for j, j_indice in enumerate(j_indices):
+                    if j_indice not in cluster_nodes_idx:
+                        cluster_nodes_idx.append(j_indice)
+                    else:
+                        # todo: handle the case when the cluster nodes are not unique
+                        continue
             all_cluster_nodes_idx.extend(cluster_nodes_idx)
         
         # count the index of cluster nodes
@@ -410,7 +424,7 @@ class CGCNNDataset(DGLDataset):
         cidxs: list[list[int]]
             The indexes of the cluster center in the structure.
         structures: list
-            A list of pymatgen.core.Structure objects.
+            A list of ase Atoms objects.
         labels: list
             A list of target values.
         featureizer: Featureizer

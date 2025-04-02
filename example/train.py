@@ -149,7 +149,7 @@ cif_path = "raw_dataset"
 
 
 def gendata(path: str):
-    adaptor = AseAtomsAdaptor()
+    # adaptor = AseAtomsAdaptor()
     # read csv file
     ids, cidxs, energies = [], [], []
     with open(os.path.join(path, "id_prop_index.csv"), "r") as f:
@@ -161,7 +161,7 @@ def gendata(path: str):
             cidxs.append([int(i) for i in row[2:]])
 
     structures = [
-        adaptor.get_structure(read(os.path.join(path, f"{id}.cif"))) for id in ids
+        read(os.path.join(path, f"{id}.cif")) for id in ids
     ]
     return ids, cidxs, structures, energies
 
@@ -171,7 +171,7 @@ ids, cidxs, structures, energies = gendata(cif_path)
 
 # set featureizer
 featurizer = Featureizer(
-    args.radius, args.max_neighbors, args.cluster_radius, args.max_nodes
+    args.radius, args.max_neighbors
 )
 
 # generate the DGL dataset
@@ -181,7 +181,7 @@ dataset = CGCNNDataset(
     structures,
     energies,
     featurizer,
-    name="cluster_graph",
+    name="1nn_cluster_graph",
     save_cache=True,
     save_dir="graph_dataset",
 )
