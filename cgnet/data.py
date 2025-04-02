@@ -148,7 +148,6 @@ class Featureizer:
         for i in range(len(struct)):
             if struct[i].specie.symbol in adsorbate_elements and i not in all_cluster_nodes_idx:
                 all_cluster_nodes_idx.append(i)
-        print(all_cluster_nodes_idx)
         
         # count the index of cluster nodes
         count = {}
