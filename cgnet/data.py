@@ -86,7 +86,7 @@ class Featureizer:
         graph = GraphData(node_features, node_weights, edge_index, edge_features).to_dgl_graph()
         return graph
     
-    def _get_cluster_node_and_edge(self, atom_object: Atoms, cidxs: list[int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _get_cluster_node_and_edge(self, atom_object: Atoms, cidxs: list[int], adsorbate_elements=['C', 'O', 'H']) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Get the node feature and edge feature from pymatgen structure.
 
@@ -128,18 +128,27 @@ class Featureizer:
 
         all_cluster_nodes_idx = []
         for cidx in cidxs:
+            cluster_nodes_offsets = [[0,0,0]]
             cluster_nodes_idx = [cidx]
             i_indices, i_offsets = nl.get_neighbors(cidx)
             cluster_nodes_idx.extend(i_indices)
+            cluster_nodes_offsets.extend(i_offsets)
             for i, i_indice in enumerate(i_indices):
                 j_indices, j_offsets = nl.get_neighbors(i_indice)
                 for j, j_indice in enumerate(j_indices):
                     if j_indice not in cluster_nodes_idx:
                         cluster_nodes_idx.append(j_indice)
-                    else:
-                        # todo: handle the case when the cluster nodes are not unique
-                        continue
+                        cluster_nodes_offsets.append(i_offsets[i]+j_offsets[j])
+                    elif j_indice in cluster_nodes_idx:
+                        if np.any(i_offsets[i]+j_offsets[j] != cluster_nodes_offsets[cluster_nodes_idx.index(j_indice)]):
+                            cluster_nodes_idx.append(j_indice)
+                            cluster_nodes_offsets.append(i_offsets[i]+j_offsets[j])
             all_cluster_nodes_idx.extend(cluster_nodes_idx)
+        # include atom with adsorbate elements in the cluster
+        for i in range(len(struct)):
+            if struct[i].specie.symbol in adsorbate_elements and i not in all_cluster_nodes_idx:
+                all_cluster_nodes_idx.append(i)
+        print(all_cluster_nodes_idx)
         
         # count the index of cluster nodes
         count = {}
