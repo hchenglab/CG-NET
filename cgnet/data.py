@@ -86,7 +86,7 @@ class Featureizer:
         graph = GraphData(node_features, node_weights, edge_index, edge_features).to_dgl_graph()
         return graph
     
-    def _get_cluster_node_and_edge(self, atom_object: Atoms, cidxs: list[int], adsorbate_elements=['C', 'O', 'H']) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _get_cluster_node_and_edge(self, atom_object: Atoms, cidxs: list[int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Get the node feature and edge feature from pymatgen structure.
 
@@ -113,6 +113,8 @@ class Featureizer:
         edge_features: np.ndarray
             A numpy array of shape with `(num_edges, filter_length)`.
         """
+
+        adsorbate_elements = [atom.symbol for atom in atom_object if atom.tag == 2] # tag == 2 is adsorbate in OCP tag format
 
         # convert ase Atoms to pymatgen Structure
         adaptor = AseAtomsAdaptor()

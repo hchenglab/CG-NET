@@ -145,7 +145,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 start_time = time.time()
 
-cif_path = "raw_dataset"
+data_path = "raw_dataset"
 
 
 def gendata(path: str):
@@ -161,13 +161,13 @@ def gendata(path: str):
             cidxs.append([int(i) for i in row[2:]])
 
     structures = [
-        read(os.path.join(path, f"{id}.cif")) for id in ids
+        read(os.path.join(path, f"{id}.traj")) for id in ids
     ]
     return ids, cidxs, structures, energies
 
 
 # prepare the dataset
-ids, cidxs, structures, energies = gendata(cif_path)
+ids, cidxs, structures, energies = gendata(data_path)
 
 # set featureizer
 featurizer = Featureizer(
