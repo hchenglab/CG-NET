@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import os
 import json
-import tqdm
 import numpy as np
 from typing import Tuple
+from dask import delayed, compute
+import dask
+from tqdm import tqdm
 
 try:
     import torch
@@ -425,6 +427,7 @@ class CGCNNDataset(DGLDataset):
         save_cache: bool = False,
         clean_cache: bool = False,
         save_dir: str | None = None,
+        use_parallel: bool = False,  # 新增参数
     ):
         """
         Parameters
@@ -449,6 +452,8 @@ class CGCNNDataset(DGLDataset):
             Whether to clean the cache.
         save_dir: str, optional (default None)
             The directory to save the dataset.
+        use_parallel: bool, optional (default True)
+            Whether to use parallel processing for graph generation.
         """
         self.ids = ids
         self.cidxs = cidxs
@@ -457,16 +462,46 @@ class CGCNNDataset(DGLDataset):
         self.featureizer = featureizer
         self.filename = filename
         self.save_cache = save_cache
+        self.use_parallel = use_parallel  # 保存并行化开关
         super(CGCNNDataset, self).__init__(name=name, save_dir=save_dir)
 
-    def process(self):
+    def process(self, chunk_size: int = 1000):
+        """
+        Process the dataset by generating graphs.
+
+        Parameters
+        ----------
+        chunk_size: int, optional (default 1000)
+            The number of structures to process in each chunk (used in parallel mode).
+        """
         self.graphs = []
         num_graphs = len(self.structures)
-        for i in tqdm.trange(num_graphs):
-            struct = self.structures[i]
-            cidxs = self.cidxs[i]
-            graph = self.featureizer._featurize(struct, cidxs=cidxs)
-            self.graphs.append(graph)
+
+        if self.use_parallel:
+            @delayed
+            def generate_graphs_chunk(start_idx, end_idx):
+                chunk_graphs = []
+                for i in range(start_idx, end_idx):
+                    struct = self.structures[i]
+                    cidxs = self.cidxs[i]
+                    graph = self.featureizer._featurize(struct, cidxs=cidxs)
+                    chunk_graphs.append(graph)
+                return chunk_graphs
+
+            tasks = []
+            for start_idx in range(0, num_graphs, chunk_size):
+                end_idx = min(start_idx + chunk_size, num_graphs)
+                tasks.append(generate_graphs_chunk(start_idx, end_idx))
+
+            tasks_with_progress = tqdm(tasks, desc="Processing chunks", total=len(tasks))
+            chunk_results = compute(*tasks_with_progress, scheduler="processes")
+            self.graphs = [graph for chunk in chunk_results for graph in chunk]
+        else:
+            for i in tqdm(range(num_graphs), desc="Processing graphs"):
+                struct = self.structures[i]
+                cidxs = self.cidxs[i]
+                graph = self.featureizer._featurize(struct, cidxs=cidxs)
+                self.graphs.append(graph)
 
     def __len__(self):
         return len(self.graphs)
