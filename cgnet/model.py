@@ -14,7 +14,7 @@ except:
     raise ImportError("This class requires DGL to be installed.")
 
 
-class CGCNNLayer(nn.Module):
+class CGNETLayer(nn.Module):
     def __init__(self, hidden_node_dim: int, edge_dim: int, batch_norm: bool = True):
         """
         Parameters
@@ -26,7 +26,7 @@ class CGCNNLayer(nn.Module):
         batch_norm: bool, default True
             Whether to apply batch normalization or not.
         """
-        super(CGCNNLayer, self).__init__()
+        super(CGNETLayer, self).__init__()
         z_dim = 2 * hidden_node_dim + edge_dim
         liner_out_dim = 2 * hidden_node_dim
         self.linear = nn.Linear(z_dim, liner_out_dim)
@@ -75,14 +75,15 @@ class CGCNNLayer(nn.Module):
         return node_feats
 
 
-class CGCNN(pl.LightningModule):
+class CGNET(pl.LightningModule):
     def __init__(
         self,
         in_node_dim: int = 92,
         hidden_node_dim: int = 64,
         in_edge_dim: int = 41,
-        predictor_hidden_feats: int = 128,
-        num_conv: int = 3,
+        predictor_hidden_dim: int = 128,
+        n_conv: int = 3,
+        n_h: int = 2,
         n_tasks: int = 1,
         task: str = "regression",
         n_classes: int = 2,
@@ -100,10 +101,12 @@ class CGCNN(pl.LightningModule):
             The length of the hidden node feature vectors.
         in_edge_dim: int, default 41
             The length of the initial edge feature vectors. The 41 is
-            based on default setting of CGCNNFeaturizer.
-        num_conv: int, default 3
+            based on default setting of Featureizer.
+        n_conv: int, default 3
             The number of convolutional layers.
-        predictor_hidden_feats: int, default 128
+        n_h: int, default 2
+            The number of hidden layers in the MLP predictor.
+        predictor_hidden_dim: int, default 128
             The size for hidden representations in the output MLP predictor.
         n_tasks: int, default 1
             The number of the output size.
@@ -117,7 +120,7 @@ class CGCNN(pl.LightningModule):
             The number of epochs to reach the minimum learning rate.
         """
 
-        super(CGCNN, self).__init__()
+        super(CGNET, self).__init__()
         self.save_hyperparameters()
         if task not in ["classification", "regression"]:
             raise ValueError("mode must be either 'classification' or 'regression'")
@@ -126,25 +129,36 @@ class CGCNN(pl.LightningModule):
         self.n_tasks = n_tasks
         self.task = task
         self.n_classes = n_classes
+        self.num_conv = n_conv
+        self.num_h = n_h
         self.lr = lr
         self.tmax = tmax
         self.embedding = nn.Linear(in_node_dim, hidden_node_dim)
         self.conv_layers = nn.ModuleList(
             [
-                CGCNNLayer(
+                CGNETLayer(
                     hidden_node_dim=hidden_node_dim,
                     edge_dim=in_edge_dim,
                     batch_norm=True,
                 )
-                for _ in range(num_conv)
+                for _ in range(n_conv)
             ]
         )
         self.readout = dgl.mean_nodes
-        self.fc = nn.Linear(hidden_node_dim, predictor_hidden_feats)
+
+        # Add MLP layers after pooling
+        mlp_layers = []
+        in_dim = hidden_node_dim
+        for _ in range(n_h):
+            mlp_layers.append(nn.Linear(in_dim, predictor_hidden_dim))
+            mlp_layers.append(nn.Softplus())
+            in_dim = predictor_hidden_dim
+        self.fcs = nn.Sequential(*mlp_layers)
+
         if self.task == "regression":
-            self.out = nn.Linear(predictor_hidden_feats, n_tasks)
+            self.out = nn.Linear(predictor_hidden_dim, n_tasks)
         else:
-            self.out = nn.Linear(predictor_hidden_feats, n_tasks * n_classes)
+            self.out = nn.Linear(predictor_hidden_dim, n_tasks * n_classes)
         self.test_ids = []
         self.test_labels = []
         self.test_outputs = []
@@ -183,7 +197,7 @@ class CGCNN(pl.LightningModule):
         # pooling
         graph.ndata["updated_x"] = node_feats
         graph_feat = F.softplus(self.readout(graph, "updated_x", "w"))
-        graph_feat = F.softplus(self.fc(graph_feat))
+        graph_feat = self.fcs(graph_feat)
         out = self.out(graph_feat)
 
         if self.task == "regression":

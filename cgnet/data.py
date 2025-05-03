@@ -24,41 +24,61 @@ from ase.neighborlist import NeighborList, natural_cutoffs
 class Featureizer:
     def __init__(
         self,
-        radius: float = 8.0,
+        neighbor_radius: float = 8.0,
         max_neighbors: int = 12,
         neighbor_depth: int = 2,
         neighbor_mult: float = 1.15,
-        min_search_radius: float = 3.0,
-        adsorbate_tag: int = 2,
-        do_cluster_radius_search: bool = False,
+        tag: int = 2,
+        with_pseudonodes: bool = True,
+        radius_search: bool = False,
+        exclude_images: bool = False,
+        cluster_radius: float = 3.0,
+        max_cluster_nodes: int = 30,
+        limit_cluster_nodes: bool = False,
         step: float = 0.2,
         json_path: str = "raw_dataset",
     ):
         """
         Parameters
         ----------
-        radius: float, optional (default 8.0)
+        neighbor_radius: float, optional (default 8.0)
             The radius for searching neighbors.
         max_neighbors: int, optional (default 12)
             The maximum number of neighbors for each node considered.
         neighbor_depth: int, optional (default 2)
             How many hops of neighbors to include for cluster node generation.
-        neighbor_cutoff: float, optional (default 1.1)
-            The cutoff radius for neighbor list.
-        min_search_radius: float, optional (default 3.0)
-            The minimum search radius for cluster nodes.
+        neighbor_mult: float, optional (default 1.15)
+            The multiplier for the natural cutoff radius.
+        tag: int, optional (default 2)
+            The tag of cluster atoms.
+        with_pseudonodes: bool, optional (default True)
+            Whether to include pseudonodes in the graph.
+        radius_search: bool, optional (default False)
+            Whether to perform a cluster search.
+        exclude_images: bool, optional (default False)
+            Whether to exclude images with tag in the cluster search.
+        cluster_radius: float, optional (default 3.0)
+            The radius for cluster search.
+        max_cluster_nodes: int, optional (default 30)
+            The maximum number of cluster nodes.
         step: float, optional (default 0.2)
             The step size for the Gaussian filter.
         json_path: str, optional (default ".")
             The path to the atom_init.json file.
+        limit_cluster_nodes: bool, optional (default False)
+            Whether to limit the number of cluster nodes.
         """
-        self.radius = radius
+        self.neighbor_radius = neighbor_radius
         self.max_neighbors = max_neighbors
         self.neighbor_depth = neighbor_depth
         self.neighbor_mult = neighbor_mult
-        self.min_search_radius = min_search_radius
-        self.adsorbate_tag = adsorbate_tag
-        self.do_cluster_radius_search = do_cluster_radius_search
+        self.tag = tag
+        self.with_pseudonodes = with_pseudonodes
+        self.radius_search = radius_search
+        self.exclude_images = exclude_images
+        self.cluster_radius = cluster_radius
+        self.max_cluster_nodes = max_cluster_nodes
+        self.limit_cluster_nodes = limit_cluster_nodes
         self.step = step
         self.json_path = json_path
 
@@ -93,7 +113,7 @@ class Featureizer:
         """
 
         node_features, node_weights, edge_index, edge_features = self._get_cluster_node_and_edge(datapoint, cidxs)
-        graph = GraphData(node_features, node_weights, edge_index, edge_features).to_dgl_graph()
+        graph = GraphData(node_features, node_weights, edge_index, edge_features, self.with_pseudonodes).to_dgl_graph()
         return graph
     
     def _get_cluster_node_and_edge(
@@ -134,29 +154,33 @@ class Featureizer:
         nl.update(atom_object)
 
         all_cluster_nodes_idx = []
+        all_cluster_nodes_offsets = []
         for cidx in cidxs:
             cluster_nodes_idx = [np.int64(cidx)]
             cluster_nodes_offsets = [[0,0,0]]
             queue = [(np.int64(cidx), [0,0,0], 0)]  # (node_idx, offset, depth)
             while queue:
                 node_idx, offset, depth = queue.pop(0)
-                if depth >= self.neighbor_depth and atom_object[node_idx].tag != self.adsorbate_tag:
-                    # if the node is not an adsorbate and the depth is greater than neighbor_depth, skip
+                if depth >= self.neighbor_depth and atom_object[node_idx].tag != self.tag:
                     continue
                 i_indices, i_offsets = nl.get_neighbors(node_idx)
                 for i, i_indice in enumerate(i_indices):
                     new_offset = np.array(offset) + np.array(i_offsets[i])
                     exists = False
                     for idx, off in zip(cluster_nodes_idx, cluster_nodes_offsets):
-                        if i_indice == idx and np.array_equal(new_offset, off):
-                            exists = True
-                            break
+                        if i_indice == idx:
+                            if np.array_equal(new_offset, off):
+                                exists = True
+                                break
+                            elif self.exclude_images and atom_object[i_indice].tag == self.tag:
+                                exists = True
+                                break
                     if not exists:
                         cluster_nodes_idx.append(i_indice)
                         cluster_nodes_offsets.append(new_offset)
                         queue.append((i_indice, new_offset, depth + 1))
-            if self.do_cluster_radius_search:
-                cidx_neighbors = struct.get_neighbors(struct[cidx], self.min_search_radius)
+            if self.radius_search:
+                cidx_neighbors = struct.get_neighbors(struct[cidx], self.cluster_radius)
                 for cidx_neighbor in cidx_neighbors:
                     i = cidx_neighbor[2]
                     image = list(cidx_neighbor[3])
@@ -169,7 +193,20 @@ class Featureizer:
                         cluster_nodes_idx.append(i)
                         cluster_nodes_offsets.append(image)
             all_cluster_nodes_idx.extend(cluster_nodes_idx)
-        
+            all_cluster_nodes_offsets.extend(cluster_nodes_offsets)
+
+        if self.limit_cluster_nodes and len(all_cluster_nodes_idx) > self.max_cluster_nodes:
+            all_cluster_nodes_with_dist = []
+            for idx, image in zip(all_cluster_nodes_idx, all_cluster_nodes_offsets):
+                min_dist = np.inf
+                for cidx in cidxs:
+                    dist = struct.get_distance(idx, cidx, image)
+                    if dist < min_dist:
+                        min_dist = dist
+                all_cluster_nodes_with_dist.append((idx, min_dist))
+            all_cluster_nodes_with_dist.sort(key=lambda x: x[1])
+            all_cluster_nodes_idx = [x[0] for x in all_cluster_nodes_with_dist[:self.max_cluster_nodes]]
+
         # count the index of cluster nodes
         count = {}
         for idx in all_cluster_nodes_idx:
@@ -181,7 +218,7 @@ class Featureizer:
         all_cluster_nodes = [struct[idx] for idx in all_cluster_nodes_idx]
 
         # get all neighbors for each node in the cluster
-        all_neighbors = struct.get_all_neighbors(self.radius, include_index=True, sites=all_cluster_nodes)
+        all_neighbors = struct.get_all_neighbors(self.neighbor_radius, sites=all_cluster_nodes)
         all_neighbors = [sorted(n, key=lambda x: x[1]) for n in all_neighbors]
         all_neighbors = [n[: self.max_neighbors] for n in all_neighbors]
 
@@ -213,7 +250,7 @@ class Featureizer:
     def _get_node_features(self, struct: Structure) -> np.ndarray:
         """
         Get the node feature from `atom_init.json`. The `atom_init.json` was collected
-        from `data/sample-regression/atom_init.json` in the CGCNN repository.
+        from `data/sample-regression/atom_init.json` in the CGNET repository.
 
         Parameters
         ----------
@@ -251,11 +288,11 @@ class Featureizer:
             A numpy array of shape with `(2, num_edges)`.
         edge_features: np.ndarray
             A numpy array of shape with `(num_edges, filter_length)`. The `filter_length` is
-            (self.radius / self.step) + 1. The edge features were built by applying gaussian
+            (self.neighbor_radius / self.step) + 1. The edge features were built by applying gaussian
             filter to the distance between nodes.
         """
 
-        neighbors = struct.get_all_neighbors(self.radius, include_index=True)
+        neighbors = struct.get_all_neighbors(self.neighbor_radius, include_index=True)
         neighbors = [sorted(n, key=lambda x: x[1]) for n in neighbors]
 
         # construct bi-directed graph
@@ -287,10 +324,10 @@ class Featureizer:
         expanded_distances: np.ndarray
             Expanded distance tensor after Gaussian filtering.
             The shape is `(num_edges, filter_length)`. The `filter_length` is
-            (self.radius / self.step) + 1.
+            (self.neighbor_radius / self.step) + 1.
         """
 
-        filt = np.arange(0, self.radius + self.step, self.step)
+        filt = np.arange(0, self.neighbor_radius + self.step, self.step)
 
         # Increase dimension of distance tensor and apply filter
         expanded_distances = np.exp(
@@ -307,6 +344,7 @@ class GraphData:
         node_weights: np.ndarray,
         edge_index: np.ndarray,
         edge_features: np.ndarray | None = None,
+        with_pseudonodes: bool = True,
         **kwargs,
     ):
         """
@@ -320,6 +358,8 @@ class GraphData:
             Graph connectivity in COO format with shape [2, num_edges]
         edge_features: np.ndarray, optional (default None)
             Edge feature matrix with shape [num_edges, num_edge_features]
+        with_pseudonodes: bool, optional (default True)
+            Whether to include pseudonodes in the graph.
         kwargs: optional
             Additional attributes and their values
         """
@@ -350,6 +390,7 @@ class GraphData:
         self.node_weights = node_weights
         self.edge_index = edge_index
         self.edge_features = edge_features
+        self.with_pseudonodes = with_pseudonodes
         self.kwargs = kwargs
         self.num_nodes, self.num_node_features = self.node_features.shape
         self.num_edges = edge_index.shape[1]
@@ -424,14 +465,19 @@ class GraphData:
 
         in_degrees = g.in_degrees()
         out_degrees = g.out_degrees()
-        non_isolated_mask = (in_degrees > 0) | (out_degrees > 0)
+        if self.with_pseudonodes:
+            # Remove isolated nodes
+            non_isolated_mask = (in_degrees > 0) | (out_degrees > 0)
+        else:
+            # Remove isolated nodes and pseudonodes
+            non_isolated_mask = (in_degrees > 0) & (out_degrees > 0)
         non_isolated_nodes = torch.nonzero(non_isolated_mask, as_tuple=False).squeeze().int()
         g = g.subgraph(non_isolated_nodes)
 
         return g
 
 
-class CGCNNDataset(DGLDataset):
+class CGNETDataset(DGLDataset):
     def __init__(
         self,
         ids: list,
@@ -480,7 +526,7 @@ class CGCNNDataset(DGLDataset):
         self.filename = filename
         self.save_cache = save_cache
         self.use_parallel = use_parallel  # 保存并行化开关
-        super(CGCNNDataset, self).__init__(name=name, save_dir=save_dir)
+        super(CGNETDataset, self).__init__(name=name, save_dir=save_dir)
 
     def process(self, chunk_size: int = 1000):
         """
@@ -533,15 +579,17 @@ class CGCNNDataset(DGLDataset):
         if self.save_cache:
             if not os.path.exists(self.save_path):
                 os.makedirs(self.save_path)
+            save_filename = os.path.join(self.save_path, self.filename)
             torch.save(
                 (self.ids, self.cidxs, self.graphs, self.labels),
-                os.path.join(self.save_path, self.filename),
+                save_filename,
             )
-            print(f"Saved {len(self.graphs)} datapoints to {self.save_path}")
+            print(f"Saved {len(self.graphs)} datapoints to {save_filename}")
 
     def load(self):
+        load_filename = os.path.join(self.save_path, self.filename)
         self.ids, self.cidxs, self.graphs, self.labels = torch.load(
-            os.path.join(self.save_path, self.filename)
+            load_filename
         )
-        print(f"Loaded {len(self.graphs)} datapoints from {self.save_path}")
+        print(f"Loaded {len(self.graphs)} datapoints from {load_filename}")
         return self.ids, self.cidxs, self.graphs, self.labels
