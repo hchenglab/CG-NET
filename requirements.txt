@@ -1,0 +1,18 @@
+# Core dependencies with exact versions for reproducibility
+# Generated from a working environment - use these versions for exact reproduction
+torch==2.7.0
+torchvision==0.22.0
+torchaudio==2.7.0
+torch-geometric==2.6.1
+pytorch-lightning==2.5.1.post0
+numpy==2.2.6
+pandas==2.2.3
+scikit-learn==1.6.1
+pymatgen==2025.5.28
+ase==3.25.0
+tqdm==4.67.1
+tensorboard==2.19.0
+PyYAML==6.0.2
+
+# Optional dependencies
+submitit==1.5.3  # for SLURM support 
