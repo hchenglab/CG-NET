@@ -199,8 +199,8 @@ def parse_args():
         not args.create_template and not args.list_templates):
         parser.error("Either --config <path> or --use-defaults must be specified")
     
-    if args.mode == "predict" and not args.checkpoint:
-        parser.error("Checkpoint path (--checkpoint) is required for prediction mode")
+    # Note: Checkpoint validation moved to main() after config loading
+    # to allow checking both CLI args and config file
     
     return args
 
@@ -231,6 +231,16 @@ def main():
         
         # Apply CLI overrides
         config = apply_config_overrides(config, args)
+        
+        # Validate checkpoint for prediction mode after config loading
+        if args.mode == "predict":
+            checkpoint_from_cli = args.checkpoint
+            checkpoint_from_config = config.get('prediction', {}).get('model_path')
+            
+            if not checkpoint_from_cli and not checkpoint_from_config:
+                print("Error: Checkpoint path is required for prediction mode.")
+                print("Please provide it either via --checkpoint argument or prediction.model_path in config file.")
+                sys.exit(1)
         
         # Handle utility commands
         if args.save_config:
@@ -287,9 +297,14 @@ def main():
                     print(f"Configuration saved to: {slurm_config_path}")
                     print("Submitting job to SLURM cluster...")
                 
+                # Determine model path for SLURM submission
+                model_path = args.checkpoint
+                if args.mode == "predict" and not model_path:
+                    model_path = config.get('prediction', {}).get('model_path')
+                
                 # Create trainer with the SLURM config
                 trainer = CGNETTrainer(slurm_config_path)
-                trainer.submit_pipeline(mode=args.mode, model_path=args.checkpoint)
+                trainer.submit_pipeline(mode=args.mode, model_path=model_path)
                 print("Job submitted successfully!")
                 return
             else:
@@ -301,8 +316,13 @@ def main():
                     print(f"Configuration saved to: {persistent_config_path}")
                     print("Submitting job to SLURM cluster...")
                 
+                # Determine model path for SLURM submission
+                model_path = args.checkpoint
+                if args.mode == "predict" and not model_path:
+                    model_path = config.get('prediction', {}).get('model_path')
+                
                 trainer = CGNETTrainer(persistent_config_path)
-                trainer.submit_pipeline(mode=args.mode, model_path=args.checkpoint)
+                trainer.submit_pipeline(mode=args.mode, model_path=model_path)
                 print("Job submitted successfully!")
                 return
 
@@ -314,11 +334,12 @@ def main():
         try:
             trainer = CGNETTrainer(temp_config_path)
             
-            # Local execution
-            if args.mode == "predict" and not args.checkpoint:
-                raise ValueError("Checkpoint path is required for prediction mode")
+            # Determine model path: CLI argument takes precedence over config file
+            model_path = args.checkpoint
+            if args.mode == "predict" and not model_path:
+                model_path = config.get('prediction', {}).get('model_path')
             
-            trainer.run_pipeline(mode=args.mode, model_path=args.checkpoint)
+            trainer.run_pipeline(mode=args.mode, model_path=model_path)
         
         finally:
             # Clean up temporary config file

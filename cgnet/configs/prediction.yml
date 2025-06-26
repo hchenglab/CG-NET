@@ -9,6 +9,9 @@ experiment:
 # Data settings for prediction
 data:
   path: "prediction_dataset"    # Path to raw dataset directory containing structures to predict
+  train_ratio: 0.8              # Required by data manager (not used for prediction-only)
+  val_ratio: 0.1                # Required by data manager (not used for prediction-only)
+  test_ratio: 0.1               # Required by data manager (not used for prediction-only)
   save_dir: "prediction_graph_dataset"  # Directory to save cached processed dataset
   force_reload: false           # Whether to force reload and reprocess data (ignores existing cache)
   filter_isolated_nodes: true   # Whether to filter out graphs containing isolated nodes
@@ -24,6 +27,12 @@ model:
   n_tasks: 1                    # Number of prediction tasks
   task: "regression"            # Task type: "regression" or "classification"
   n_classes: 2                  # Number of classes (only used for classification)
+
+# Minimal training section (required by TrainingManager for validation)
+training:
+  epochs: 1                     # Not used for prediction, but required by validation
+  batch_size: 128               # Fallback batch size if not specified in prediction section
+  lr: 0.001                     # Not used for prediction, but required by validation
 
 # Prediction settings
 prediction:
@@ -63,9 +72,11 @@ device:
   devices: 1                    # Number of devices to use for prediction
   precision: 32                 # Numerical precision (16 for faster inference, 32 for stability)
 
-# Logging settings (minimal for prediction)
+# Logging settings (required by validation logic)
 logging:
   log_dir: "logs/prediction"    # Directory for prediction logs
+  monitor: "val_loss"           # Required by LoggingConfig validation
+  mode: "min"                   # Required by LoggingConfig validation
 
 # SLURM cluster settings (optional, for cluster-based prediction)
 slurm:

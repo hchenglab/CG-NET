@@ -177,7 +177,13 @@ class ConfigValidator:
     @staticmethod
     def _is_prediction_only_config(config: Dict[str, Any]) -> bool:
         """Check if this is a prediction-only configuration."""
-        return 'prediction' in config and 'training' not in config
+        # Check if this has prediction section and minimal training configuration
+        has_prediction = 'prediction' in config
+        has_minimal_training = (
+            'training' in config and 
+            config.get('training', {}).get('epochs', 0) <= 1
+        )
+        return has_prediction and has_minimal_training
     
     @staticmethod
     def _validate_experiment_section(config: Dict[str, Any]) -> List[str]:
@@ -642,6 +648,9 @@ class ConfigTemplateGenerator:
             },
             'data': {
                 'path': 'prediction_dataset',
+                'train_ratio': ConfigConstants.DEFAULT_TRAIN_RATIO,
+                'val_ratio': ConfigConstants.DEFAULT_VAL_RATIO,
+                'test_ratio': ConfigConstants.DEFAULT_TEST_RATIO,
                 'save_dir': 'prediction_graph_dataset',
                 'force_reload': False,
                 'filter_isolated_nodes': True
@@ -656,6 +665,11 @@ class ConfigTemplateGenerator:
                 'n_tasks': 1,
                 'task': TaskType.REGRESSION.value,
                 'n_classes': 2
+            },
+            'training': {
+                'epochs': 1,
+                'batch_size': 128,
+                'lr': ConfigConstants.DEFAULT_LEARNING_RATE
             },
             'prediction': {
                 'model_path': None,
@@ -690,7 +704,9 @@ class ConfigTemplateGenerator:
                 'precision': 32
             },
             'logging': {
-                'log_dir': 'logs/prediction'
+                'log_dir': 'logs/prediction',
+                'monitor': 'val_loss',
+                'mode': 'min'
             },
             'slurm': {
                 'use_slurm': False,
@@ -1065,7 +1081,7 @@ class ConfigManager:
                 'mail_type': None,
                 'mail_user': None,
                 'nice': None,
-                'gpus_per_node': None
+                'gpus_per_node': 1
             },
             'device': {
                 'accelerator': 'auto',

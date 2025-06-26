@@ -936,7 +936,7 @@ class SlurmManager:
                 'nodes': slurm_config.get('nodes', SlurmConstants.DEFAULT_NODES),
                 'cpus_per_task': slurm_config.get('cpus_per_task', SlurmConstants.DEFAULT_CPUS_PER_TASK),
                 'mem_gb': slurm_config.get('mem_gb', SlurmConstants.DEFAULT_MEM_GB),
-                'gpus_per_node': slurm_config.get('gpus_per_node', 0),
+                'gpus_per_node': slurm_config.get('gpus_per_node', 1),
                 'time_limit': slurm_config.get('time', 'Not specified'),
                 'account': slurm_config.get('account', 'Not specified'),
                 'qos': slurm_config.get('qos', 'Not specified')

@@ -15,9 +15,10 @@ A PyTorch implementation of Cluster Graph Neural Network for materials property 
 ## Installation
 
 ```bash
-git clone https://github.com/your-username/cgnet.git
-cd cgnet
-pip install -r requirements.txt
+conda create -n cgnet-env python=3.11 -y
+conda activate cgnet-env
+git clone https://github.com/hchenglab/CG-NET.git
+cd CG-NET
 pip install -e .
 ```
 
@@ -36,8 +37,7 @@ python -m cgnet.cli --config config.yml
 python -m cgnet.cli --config config.yml --epochs 200 --batch-size 64 --lr 0.001
 
 # Generate task-specific templates
-python -m cgnet.cli --create-template regression --template-output regression_config.yml
-python -m cgnet.cli --create-template classification --template-output classification_config.yml
+python -m cgnet.cli --create-template regression --save-config regression_config.yml
 
 # Prediction only
 python -m cgnet.cli --config config.yml --mode predict --checkpoint model.ckpt

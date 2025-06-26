@@ -15,7 +15,7 @@ The following datasets are available for download from Figshare:
 
 ## Download Instructions
 
-1. Download the datasets from Figshare: [https://figshare.com/articles/dataset/Datasets_used_for_CG-NET_training_and_evaluation_/29413064]
+1. Download the datasets from Figshare: https://figshare.com/articles/dataset/Datasets_used_for_CG-NET_training_and_evaluation_/29413064
 2. Extract the datasets using: `tar -zxvf *.tar.gz`
 3. Place the extracted directories in this `datasets/` folder
 
