@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cgnet"
+version = "0.1.0"
+description = "A physics-informed cluster graph neural network enables generalizable and interpretable prediction for material discovery"
+requires-python = ">=3.8"
+dependencies = [
+    "torch>=1.12.0",
+    "torchvision>=0.13.0",
+    "torchaudio>=0.12.0",
+    "torch-geometric>=2.0.0",
+    "pytorch-lightning>=1.8.0",
+    "numpy>=1.20.0",
+    "pandas>=1.3.0",
+    "scikit-learn>=1.0.0",
+    "pymatgen>=2022.0.0",
+    "ase>=3.22.0",
+    "tqdm>=4.60.0",
+    "tensorboard>=2.8.0",
+    "pyyaml>=6.0.0",
+]
+
+[project.optional-dependencies]
+slurm = ["submitit>=1.4.0"]
+all = ["submitit>=1.4.0"]
+
+[project.scripts]
+cgnet = "cgnet.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cgnet*"]
+
+[tool.setuptools.package-data]
+"cgnet.utils" = ["*.json"] 

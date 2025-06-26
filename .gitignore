@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+._*
+Thumbs.db
+
+# PyTorch and Machine Learning
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+
+# Training artifacts
+logs/
+checkpoints/
+results/
+outputs/
+lightning_logs/
+wandb/
+
+# SLURM
+slurm_logs/
+slurm-*.out
+slurm-*.err
+*.sbatch
+
+# Configuration files (keep main config)
+config_local.yml
+config_*.yml
+!config.yml
+
+# Cache and temporary files
+.cache/
+cache/
+tmp/
+temp/
+*.tmp
+*.log
+cgnet_dataset/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Large archives
+*.tar
+*.tar.gz
+*.zip

@@ -1,0 +1,89 @@
+cross_validation:
+  aggregate_results: true
+  enabled: false
+  n_folds: 5
+  save_fold_results: true
+  shuffle: true
+  stratified: false
+data:
+  clean_cache: false
+  filter_isolated_nodes: true
+  path: raw_dataset
+  save_cache: true
+  save_dir: graph_dataset
+  test_ratio: 0.1
+  train_ratio: 0.8
+  val_ratio: 0.1
+device:
+  accelerator: auto
+  benchmark: true
+  deterministic: false
+  precision: 32
+experiment:
+  name: cgnet_experiment
+  seed: 42
+featurizer:
+  cluster_radius: 7.0
+  conservative_small_lattice: false
+  enable_smart_images: true
+  max_cluster_nodes: null
+  max_distance_factor: 2.0
+  max_neighbors: 12
+  method: CR
+  neighbor_depth: 2
+  neighbor_mult: 1.15
+  neighbor_radius: 8.0
+  small_lattice_threshold: 5.0
+  step: 0.2
+  tag: 2
+  with_pseudonodes: true
+logging:
+  log_dir: logs
+  mode: min
+  monitor: val_mae
+  save_top_k: 1
+model:
+  hidden_node_dim: 64
+  in_edge_dim: 41
+  in_node_dim: 92
+  n_classes: 2
+  n_h: 2
+  n_tasks: 1
+  num_conv: 3
+  predictor_hidden_dim: 128
+  task: regression
+slurm:
+  account: null
+  constraint: null
+  cpus_per_task: 4
+  error: slurm_logs/cgnet_%j.err
+  exclude: null
+  gpus_per_node: null
+  gres: gpu:1
+  job_name: cgnet_experiment
+  mail_type: null
+  mail_user: null
+  mem: 32GB
+  nice: null
+  nodes: 1
+  ntasks_per_node: 1
+  output: slurm_logs/cgnet_%j.out
+  partition: Normal
+  qos: null
+  time: '24:00:00'
+  use_slurm: false
+training:
+  batch_size: 64
+  devices: 1
+  early_stopping:
+    enabled: false
+    min_delta: 0.0
+    mode: min
+    monitor: val_loss
+    patience: 10
+    verbose: true
+  epochs: 300
+  lr: 0.001
+  num_workers: 0
+  strategy: null
+  tmax: 300

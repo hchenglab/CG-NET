@@ -1,0 +1,88 @@
+# Configuration file for CG-NET prediction/inference
+# Simplified settings for prediction tasks on new data
+
+# Basic experiment settings
+experiment:
+  name: "cgnet_prediction"      # Experiment name (used for logging directory)
+  seed: 42                      # Random seed for reproducibility
+
+# Data settings for prediction
+data:
+  path: "prediction_dataset"    # Path to raw dataset directory containing structures to predict
+  save_dir: "prediction_graph_dataset"  # Directory to save cached processed dataset
+  force_reload: false           # Whether to force reload and reprocess data (ignores existing cache)
+  filter_isolated_nodes: true   # Whether to filter out graphs containing isolated nodes
+
+# Model architecture parameters (must match training configuration)
+model:
+  in_node_dim: 92               # Input node feature dimension (from atom_init.json)
+  hidden_node_dim: 64           # Hidden node feature dimension in conv layers
+  in_edge_dim: 41               # Input edge feature dimension (auto-detected from dataset)
+  predictor_hidden_dim: 128     # Hidden features in the predictor MLP
+  num_conv: 3                   # Number of convolutional layers
+  n_h: 2                        # Number of hidden layers in predictor MLP
+  n_tasks: 1                    # Number of prediction tasks
+  task: "regression"            # Task type: "regression" or "classification"
+  n_classes: 2                  # Number of classes (only used for classification)
+
+# Prediction settings
+prediction:
+  model_path: null              # Path to trained model checkpoint (required for prediction)
+  batch_size: 128               # Batch size for prediction (larger for efficiency)
+  num_workers: 4                # Number of data loading workers
+  output_file: "predictions.csv"  # Output file for predictions
+  save_probabilities: true      # Whether to save class probabilities (for classification)
+  save_raw_outputs: true        # Whether to save raw model outputs
+
+# Graph featurization settings (must match training configuration)
+featurizer:
+  method: "CR"                  # Method for cluster construction: "CR" or "nth-NN"
+  neighbor_radius: 8.0          # Cutoff radius for neighbor search (Angstrom)
+  max_neighbors: 12             # Maximum number of neighbors per node
+  
+  # CR method parameters (only used when method="CR")
+  cluster_radius: 7.0           # Cluster radius for CR method (Angstrom)
+  
+  # nth-NN method parameters (only used when method="nth-NN")
+  neighbor_depth: 2             # Neighbor depth for nth-NN method
+  neighbor_mult: 1.15           # Multiplicative factor for neighbor radius in nth-NN method
+  max_distance_factor: 2.0      # Maximum distance factor for neighbor search
+  small_lattice_threshold: 5.0  # Threshold for small lattice detection
+  enable_smart_images: true     # Whether to enable smart images
+  conservative_small_lattice: false  # Whether to use conservative small lattice strategy
+  
+  # Common parameters
+  max_cluster_nodes: null       # Maximum number of nodes in cluster graph (null = no limit)
+  tag: 2                        # Tag for cluster center identification
+  step: 0.2                     # Step size for Gaussian edge feature filter
+  with_pseudonodes: true        # Whether to include pseudonodes in graph
+
+# Device configuration
+device:
+  accelerator: "auto"           # Device accelerator (auto, gpu, cpu, mps)
+  devices: 1                    # Number of devices to use for prediction
+  precision: 32                 # Numerical precision (16 for faster inference, 32 for stability)
+
+# Logging settings (minimal for prediction)
+logging:
+  log_dir: "logs/prediction"    # Directory for prediction logs
+
+# SLURM cluster settings (optional, for cluster-based prediction)
+slurm:
+  use_slurm: false              # Whether to use SLURM for job submission
+  partition: "Normal"           # SLURM partition name
+  nodes: 1                      # Number of nodes to request
+  cpus_per_task: 4              # Number of CPUs per task
+  mem: "16GB"                   # Memory per node
+  gres: "gpu:1"                 # GPU resources
+  time: "04:00:00"              # Maximum runtime
+  job_name: "cgnet_prediction"  # Job name
+  output: "slurm_logs/cgnet_prediction_%j.out"  # Output file pattern
+  error: "slurm_logs/cgnet_prediction_%j.err"   # Error file pattern
+
+# Advanced prediction settings (optional)
+advanced:
+  uncertainty_estimation: false # Whether to estimate prediction uncertainty (experimental)
+  ensemble_prediction: false    # Whether to use ensemble of models for prediction
+  ensemble_models: []           # List of model paths for ensemble prediction
+  max_cluster_nodes: null       # Maximum number of nodes in cluster graph (null = no limit) 

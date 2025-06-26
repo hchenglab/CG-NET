@@ -1,0 +1,118 @@
+# Configuration file for CG-NET classification training
+# Default settings for classification tasks
+
+experiment:
+  name: "cgnet_classification"  # Experiment name (used for logging directory)
+  seed: 42                      # Random seed for reproducibility
+
+# Data settings
+data:
+  path: "raw_dataset"           # Path to raw dataset directory containing CSV and trajectory files
+  train_ratio: 0.8              # Fraction of data used for training (0.0-1.0)
+  val_ratio: 0.1                # Fraction of data used for validation (0.0-1.0)
+  test_ratio: 0.1               # Fraction of data used for testing (0.0-1.0)
+  save_dir: "graph_dataset"     # Directory to save cached processed dataset
+  force_reload: false           # Whether to force reload and reprocess data (ignores existing cache)
+  filter_isolated_nodes: true   # Whether to filter out graphs containing isolated nodes
+  save_data_splits: true        # Whether to save train/val/test split indices for reproducibility
+  load_data_splits: null        # Path to existing split indices file (.pt) to load
+  splits_save_path: "data_splits" # Directory to save split indices files
+
+# Model architecture parameters
+model:
+  in_node_dim: 92               # Input node feature dimension (from atom_init.json)
+  hidden_node_dim: 64           # Hidden node feature dimension in conv layers
+  in_edge_dim: 41               # Input edge feature dimension (auto-detected from dataset)
+  predictor_hidden_dim: 128     # Hidden features in the predictor MLP (fixed from predictor_hidden_feats)
+  num_conv: 3                   # Number of convolutional layers
+  n_h: 2                        # Number of hidden layers in predictor MLP
+  n_tasks: 1                    # Number of prediction tasks
+  task: "classification"        # Task type: "regression" or "classification"
+  n_classes: 2                  # Number of classes (binary classification by default)
+
+# Training hyperparameters
+training:
+  epochs: 300                   # Maximum number of training epochs
+  batch_size: 64                # Mini-batch size
+  lr: 0.001                     # Initial learning rate
+  tmax: 300                     # T_max for CosineAnnealingLR scheduler (typically set to epochs)
+  num_workers: 0                # Number of data loading workers (0 = main process only)
+  devices: 1                    # Number of devices to use for training
+  strategy: null                # Training strategy (null, 'ddp', 'ddp_spawn', etc.)
+  early_stopping:               # Early stopping configuration
+    enabled: false              # Whether to enable early stopping
+    monitor: "val_acc"          # Metric to monitor for early stopping
+    patience: 20                # Number of epochs to wait before stopping
+    mode: "max"                 # Direction to monitor ('min' for loss, 'max' for accuracy)
+    min_delta: 0.001            # Minimum change to qualify as improvement
+    verbose: true               # Whether to print early stopping messages
+
+# Cross-validation settings
+cross_validation:
+  enabled: false                # Whether to use k-fold cross-validation
+  n_folds: 5                    # Number of folds for cross-validation
+  stratified: true              # Whether to use stratified k-fold (recommended for classification)
+  shuffle: true                 # Whether to shuffle data before splitting
+  save_fold_results: true       # Whether to save results for each fold
+  aggregate_results: true       # Whether to aggregate results across folds
+
+# Graph featurization settings
+featurizer:
+  method: "CR"                  # Method for cluster construction: "CR" (cluster radius) or "nth-NN" (nth nearest neighbor)
+  neighbor_radius: 8.0          # Cutoff radius for neighbor search (Angstrom)
+  max_neighbors: 12             # Maximum number of neighbors per node
+  
+  # CR method parameters (only used when method="CR")
+  cluster_radius: 7.0           # Cluster radius for CR method (Angstrom)
+  
+  # nth-NN method parameters (only used when method="nth-NN")
+  neighbor_depth: 2             # Neighbor depth for nth-NN method
+  neighbor_mult: 1.15           # Multiplicative factor for neighbor radius in nth-NN method
+  max_distance_factor: 2.0      # Maximum distance factor for neighbor search
+  small_lattice_threshold: 5.0  # Threshold for small lattice detection
+  enable_smart_images: true     # Whether to enable smart images
+  conservative_small_lattice: false  # Whether to use conservative small lattice strategy
+  
+  # Common parameters
+  max_cluster_nodes: null       # Maximum number of nodes in cluster graph (null = no limit)
+  tag: 2                        # Tag for cluster center identification
+  step: 0.2                     # Step size for Gaussian edge feature filter
+  with_pseudonodes: true        # Whether to include pseudonodes in graph
+
+# Logging and model saving settings
+logging:
+  log_dir: "logs/classification" # Directory for training logs and checkpoints
+  save_top_k: 1                 # Number of best model checkpoints to save
+  monitor: "val_acc"            # Metric to monitor for checkpointing (val_mae, val_loss, val_acc)
+  mode: "max"                   # Optimization direction: "min" or "max"
+
+# Device configuration
+device:
+  accelerator: "auto"           # Device accelerator (auto, gpu, cpu, mps)
+  precision: 32                 # Numerical precision (16, 32, 64)
+  deterministic: false          # Whether to use deterministic algorithms (slower but reproducible)
+  benchmark: true               # Whether to use cudnn benchmark (faster but less reproducible)
+
+# SLURM cluster settings (for submitit)
+slurm:
+  use_slurm: false              # Whether to use SLURM for job submission
+  partition: "Normal"           # SLURM partition name
+  nodes: 1                      # Number of nodes to request
+  ntasks_per_node: 1            # Number of tasks per node
+  cpus_per_task: 4              # Number of CPUs per task
+  mem: "32GB"                   # Memory per node
+  gres: "gpu:1"                 # GPU resources (e.g., "gpu:1", "gpu:v100:2")
+  time: "24:00:00"              # Maximum runtime (HH:MM:SS)
+  job_name: "cgnet_classification" # Job name
+  account: null                 # Account to charge (set if required)
+  qos: null                     # Quality of service (set if required)
+  constraint: null              # Node constraints (e.g., specific GPU types)
+  exclude: null                 # Nodes to exclude
+  array: null                   # Job array specification (e.g., "1-10")
+  output: "slurm_logs/cgnet_classification_%j.out"  # Output file pattern (%j = job ID)
+  error: "slurm_logs/cgnet_classification_%j.err"   # Error file pattern (%j = job ID)
+  mail_type: null               # Email notification type (e.g., "END", "FAIL", "ALL")
+  mail_user: null               # Email address for notifications
+  nice: null                    # Job priority adjustment
+  gpus_per_node: null           # Alternative GPU specification
+  additional_parameters: {}     # Additional SLURM parameters as key-value pairs 
