@@ -1,0 +1,12 @@
+data_name: oc20
+base_dir: /home/chenghao/research/cgnet_benchmark_202606/bader_charge
+data_dir: /home/chenghao/research/models/fairchem/datasets/aselmdb/bader_charge/oc20
+mode: SLURM
+device: CUDA
+num_nodes: 1
+ranks_per_node: 1
+debug: False
+partition: PGPU
+mem_gb: 60
+cpus_per_task: 12
+dataloader_workers: 4

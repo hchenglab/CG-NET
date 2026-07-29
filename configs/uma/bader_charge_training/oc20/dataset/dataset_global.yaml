@@ -1,0 +1,39 @@
+oc20_train:
+  splits:
+    train:
+      sample_n: ${train_sample}
+      src:
+        - ${cluster.data_dir}/train
+  format: ase_db
+  a2g_args:
+    r_energy: False
+    r_forces: False
+    r_edges: ${cpu_graph}
+    radius: ${cutoff_radius}
+    max_neigh: ${max_neighbors}
+    r_custom_info_keys: ['bader_charge', 'bader_charge_raw']
+  key_mapping:
+    bader_charge: ${cluster.data_name}_bader_charge
+  transforms:
+    common_transform:
+      dataset_name: ${cluster.data_name}
+
+oc20_val:
+  splits:
+    val_id:
+      sample_n: ${val_sample}
+      src:
+        - ${cluster.data_dir}/val
+  format: ase_db
+  a2g_args:
+    r_energy: False
+    r_forces: False
+    r_edges: ${cpu_graph}
+    radius: ${cutoff_radius}
+    max_neigh: ${max_neighbors}
+    r_custom_info_keys: ['bader_charge', 'bader_charge_raw']
+  key_mapping:
+    bader_charge: ${cluster.data_name}_bader_charge
+  transforms:
+    common_transform:
+      dataset_name: ${cluster.data_name}

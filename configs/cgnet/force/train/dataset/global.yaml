@@ -1,0 +1,49 @@
+train:
+  splits:
+    train:
+      sample_n: ${train_sample}
+      src:
+        - ${cluster.data_dir}/train
+  format: ase_db
+  a2g_args:
+    r_energy: True
+    r_forces: ${regress_forces}
+    r_stress: ${regress_stress}
+    r_edges: ${cpu_graph}
+    radius: ${cutoff_radius}
+    max_neigh: ${max_neighbors}
+    cluster_radius: ${cluster_radius}
+    pseudo_radius: ${pseudo_radius}
+    cluster_with_pseudonodes: ${cluster_with_pseudonodes}
+    r_custom_info_keys: ["cluster_partition"]
+  key_mapping:
+    energy: energy
+    forces: forces
+  transforms:
+    common_transform:
+      dataset_name: data
+
+val:
+  splits:
+    val:
+      sample_n: ${val_sample}
+      src:
+        - ${cluster.data_dir}/val
+  format: ase_db
+  a2g_args:
+    r_energy: True
+    r_forces: ${regress_forces}
+    r_stress: ${regress_stress}
+    r_edges: ${cpu_graph}
+    radius: ${cutoff_radius}
+    max_neigh: ${max_neighbors}
+    cluster_radius: ${cluster_radius} 
+    pseudo_radius: ${pseudo_radius}
+    cluster_with_pseudonodes: ${cluster_with_pseudonodes}
+    r_custom_info_keys: ["cluster_partition"]
+  key_mapping:
+    energy: energy
+    forces: forces
+  transforms:
+    common_transform:
+      dataset_name: data

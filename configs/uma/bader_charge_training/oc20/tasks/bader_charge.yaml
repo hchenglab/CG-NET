@@ -1,0 +1,22 @@
+- _target_: fairchem.core.units.mlip_unit.mlip_unit.Task
+  name: ${cluster.data_name}_bader_charge
+  level: atom
+  property: bader_charge
+  loss_fn:
+    _target_: fairchem.core.modules.loss.DDPMTLoss
+    loss_fn:
+      _target_: fairchem.core.modules.loss.MAELoss
+    coefficient: ${bader_charge_coef}
+  out_spec:
+    dim: [1]
+    dtype: float32
+  normalizer:
+    _target_: fairchem.core.modules.normalization.normalizer.Normalizer
+    mean: 0.0
+    rmsd: ${normalizer_rmsd}
+  datasets:
+    - ${cluster.data_name}
+  metrics:
+    - mae
+  # 【新增】仅计算 cluster_partition == 0 (中心催化剂+吸附物区域)
+  mask_by_cluster_partition: 0

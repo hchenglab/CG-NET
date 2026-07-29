@@ -1,0 +1,20 @@
+- _target_: fairchem.core.units.mlip_unit.mlip_unit.Task
+  name: ade
+  level: system
+  property: ade
+  loss_fn:
+    _target_: fairchem.core.modules.loss.DDPMTLoss
+    loss_fn:
+      _target_: fairchem.core.modules.loss.MAELoss
+    coefficient: ${ade_coef}
+  out_spec:
+    dim: [1]
+    dtype: float32
+  normalizer:
+    _target_: fairchem.core.modules.normalization.normalizer.Normalizer
+    mean: 0.0
+    rmsd: ${normalizer_rmsd}
+  datasets:
+    - data
+  metrics:
+    - mae

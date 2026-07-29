@@ -1,0 +1,1 @@
+ckpt_path: ${cluster.checkpoint_root_dir}/inference_ckpt.pt

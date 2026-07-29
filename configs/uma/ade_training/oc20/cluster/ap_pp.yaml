@@ -1,0 +1,7 @@
+data_name: oc20
+base_dir: /home/haocheng/research/cgnet_benchmark_202606
+data_dir: /home/haocheng/research/models/fairchem/datasets/aselmdb/ade/local/oc20/c_${cluster_radius}_r_${cutoff_radius}
+mode: LOCAL
+device: CUDA
+debug: False
+dataloader_workers: 4

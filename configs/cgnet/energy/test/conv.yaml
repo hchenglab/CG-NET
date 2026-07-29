@@ -1,0 +1,87 @@
+defaults:
+- cluster: conv
+- dataset: global
+- checkpoint: checkpoint
+- _self_
+job:
+  device_type: ${cluster.device}
+  scheduler:
+    mode: ${cluster.mode}
+    ranks_per_node: ${cluster.ranks_per_node}
+    num_nodes: ${cluster.num_nodes}
+    slurm:
+      partition: ${cluster.partition}
+      mem_gb: ${cluster.mem_gb}
+      cpus_per_task: ${cluster.cpus_per_task}
+  debug: ${cluster.debug}
+  run_name: ${cluster.data_name}_conv
+  run_dir: ${cluster.base_dir}/${cluster.data_name}/test/runs/conv
+  logger:
+    _target_: fairchem.core.common.logger.WandBSingletonLogger.init_wandb
+    _partial_: true
+    entity: localgraph
+    project: ade
+
+seed: 0
+test_sample: null
+max_neighbors: 30
+cutoff_radius: 6.0
+cluster_radius: null
+pseudo_radius: null
+cluster_with_pseudonodes: false
+batch_size: 64
+cpu_graph: false
+regress_stress: false
+regress_forces: false
+
+exclude_keys:
+- id
+- fid
+- absolute_idx
+- target_pos
+- ref_energy
+- pbc
+- nads
+- oc22
+- formation_energy
+- total_charge
+
+tasks:
+  _target_: fairchem.core.units.mlip_unit.utils.load_tasks
+  checkpoint_location: ${checkpoint.ckpt_path}
+
+test_dataset:
+  _target_: fairchem.core.datasets.mt_concat_dataset.create_concat_dataset
+  dataset_configs:
+    data: ${dataset.test}
+  combined_dataset_config:
+    sampling:
+      type: temperature
+      temperature: 1.0
+test_dataloader:
+  _target_: fairchem.core.components.common.dataloader_builder.get_dataloader
+  dataset: ${test_dataset}
+  batch_sampler_fn:
+    _target_: fairchem.core.common.data_parallel.BalancedBatchSampler
+    _partial_: true
+    batch_size: ${batch_size}
+    shuffle: false
+    seed: ${seed}
+  num_workers: ${cluster.dataloader_workers}
+  persistent_workers: True 
+  collate_fn:
+    _target_: fairchem.core.units.mlip_unit.mlip_unit.mt_collater_adapter
+    tasks: ${tasks}
+    exclude_keys: ${exclude_keys}
+runner:
+  _target_: fairchem.core.components.evaluate.eval_runner.EvalRunner
+  dataloader: ${test_dataloader}
+  eval_unit:
+    _target_: fairchem.core.units.mlip_unit.mlip_unit.MLIPEvalUnit
+    job_config: ${job}
+    tasks: ${tasks}
+    model:
+      _target_: fairchem.core.units.mlip_unit.mlip_unit.load_inference_model
+      checkpoint_location: ${checkpoint.ckpt_path}
+      return_checkpoint: False
+      use_ema: True

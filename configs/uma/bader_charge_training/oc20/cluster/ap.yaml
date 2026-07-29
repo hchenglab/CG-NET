@@ -1,0 +1,7 @@
+data_name: oc20
+base_dir: /home/haocheng/research/cgnet_benchmark_202606/bader_charge
+data_dir: /home/haocheng/research/models/fairchem/datasets/aselmdb/bader_charge/oc20
+mode: LOCAL
+device: CUDA
+debug: False
+dataloader_workers: 4

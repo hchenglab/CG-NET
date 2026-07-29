@@ -1,0 +1,9 @@
+model: fairchem.core.models.cgcnn.cgcnn.CGCNNBackbone
+orig_atom_fea_len: 92  # 对应 atom_init.json 中的原始特征长度
+nbr_fea_len: 41        # 高斯距离展开的特征长度 (num_freqs)
+atom_fea_len: 64       # 卷积层内部的隐藏层特征维度
+n_conv: 3              # 卷积层的层数
+dmin: 0.0              # 高斯展开的最小距离
+cutoff: ${cutoff_radius}
+otf_graph: ${otf_graph}
+max_neighbors: ${max_neighbors}

@@ -1,0 +1,12 @@
+data_name: hea
+base_dir: run_dir
+data_dir: datasets/aselmdb/force/hea/conv/c_4.0
+mode: SLURM
+device: CUDA
+num_nodes: 1
+ranks_per_node: 1
+debug: False
+partition: PGPU
+mem_gb: 60
+cpus_per_task: 12
+dataloader_workers: 4

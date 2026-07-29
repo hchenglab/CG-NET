@@ -1,0 +1,20 @@
+- _target_: fairchem.core.units.mlip_unit.mlip_unit.Task
+  name: ${cluster.data_name}_adsorption_energy
+  level: system
+  property: adsorption_energy
+  loss_fn:
+    _target_: fairchem.core.modules.loss.DDPMTLoss
+    loss_fn:
+      _target_: fairchem.core.modules.loss.MAELoss
+    coefficient: ${adsorption_energy_coef}
+  out_spec:
+    dim: [1]
+    dtype: float32
+  normalizer:
+    _target_: fairchem.core.modules.normalization.normalizer.Normalizer
+    mean: 0.0
+    rmsd: ${normalizer_rmsd}
+  datasets:
+    - ${cluster.data_name}
+  metrics:
+    - mae

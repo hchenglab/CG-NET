@@ -1,0 +1,114 @@
+# Example configuration for predicting custom material properties
+# This file demonstrates how to extend the fairchem UMA training pipeline to predict:
+# 1. System-level properties (e.g., adsorption energy)
+# 2. Per-atom properties (e.g., atomic charges)
+#
+# Usage: You can merge these configurations into your main training yaml
+# (e.g., `uma_sm_direct_pretrain.yaml`) or use it as a reference.
+
+# ---------------------------------------------------------
+# 1. Dataset Configuration (a2g_args & key_mapping)
+# ---------------------------------------------------------
+# Assuming your custom dataset is named `my_custom_data` and is in ASE DB format.
+# - adsorption_energy: System-level property stored in `atoms.info["adsorption_energy"]`
+# - bader_charges: Per-atom property stored in `atoms.arrays["bader_charges"]`
+
+my_custom_data_train:
+  splits:
+    train:
+      src: /path/to/your/custom_dataset/train/  # Replace with actual path
+  format: ase_db
+  a2g_args:
+    r_energy: True
+    r_forces: True
+    r_edges: ${cpu_graph}
+    radius: ${cutoff_radius}
+    max_neigh: ${max_neighbors}
+    # NEW: Tell `from_ase()` to load these custom properties into AtomicData
+    r_custom_info_keys: ['adsorption_energy']
+    r_custom_arrays_keys: ['bader_charges']
+  key_mapping:
+    # Map the raw keys to dataset-specific keys (optional but recommended for multi-dataset training)
+    energy: my_custom_data_energy
+    forces: my_custom_data_forces
+    adsorption_energy: my_custom_data_adsorption_energy
+    bader_charges: my_custom_data_atom_charges
+  transforms:
+    common_transform:
+      dataset_name: my_custom_data
+
+# ---------------------------------------------------------
+# 2. Heads Configuration
+# ---------------------------------------------------------
+# Here we add the new heads for our custom properties.
+# CRITICAL: 
+# - The dictionary key (e.g., `my_custom_data_adsorption_energy`) MUST match `task.name`.
+# - `output_property` MUST match `task.property`.
+
+heads:
+  # (Your existing energy/forces heads go here...)
+  
+  # Head for predicting adsorption energy
+  my_custom_data_adsorption_energy:
+    module: fairchem.core.models.uma.escn_md.Linear_System_Scalar_Head
+    output_property: adsorption_energy   # Must match `property` in the task definition
+    reduce: sum
+
+  # Head for predicting per-atom charges
+  my_custom_data_atom_charges:
+    module: fairchem.core.models.uma.escn_md.Linear_Per_Atom_Scalar_Head
+    output_property: atom_charges        # Must match `property` in the task definition
+
+# ---------------------------------------------------------
+# 3. Tasks Configuration
+# ---------------------------------------------------------
+# Add these tasks to your `tasks` yaml (e.g., tasks/uma_direct.yaml)
+
+tasks:
+  # (Your existing tasks go here...)
+
+  # Task for system-level scalar (adsorption energy)
+  - _target_: fairchem.core.units.mlip_unit.mlip_unit.Task
+    name: my_custom_data_adsorption_energy     # Must match the head name
+    level: system
+    property: adsorption_energy                # Must match `output_property` in the head
+    loss_fn:
+      _target_: fairchem.core.modules.loss.DDPMTLoss
+      loss_fn:
+        _target_: fairchem.core.modules.loss.MAELoss
+      coefficient: 10                          # Tune this weight as needed
+    out_spec:
+      dim: [1]
+      dtype: float32
+    normalizer:
+      _target_: fairchem.core.modules.normalization.normalizer.Normalizer
+      mean: 0.0
+      rmsd: 1.0                                # Set to the standard deviation of your property
+    datasets:
+      - my_custom_data
+    metrics:
+      - mae
+
+  # Task for per-atom scalar (atomic charges)
+  - _target_: fairchem.core.units.mlip_unit.mlip_unit.Task
+    name: my_custom_data_atom_charges          # Must match the head name
+    level: atom
+    property: atom_charges                     # Must match `output_property` in the head
+    train_on_free_atoms: False                 # Often False for charges (predict for all atoms)
+    eval_on_free_atoms: False
+    loss_fn:
+      _target_: fairchem.core.modules.loss.DDPMTLoss
+      loss_fn:
+        _target_: fairchem.core.modules.loss.MAELoss
+      coefficient: 5                           # Tune this weight as needed
+    out_spec:
+      dim: [1]
+      dtype: float32
+    normalizer:
+      _target_: fairchem.core.modules.normalization.normalizer.Normalizer
+      mean: 0.0
+      rmsd: 1.0                                # Set to the standard deviation of your property
+    datasets:
+      - my_custom_data
+    metrics:
+      - mae
